@@ -1,0 +1,103 @@
+from rest_framework import serializers
+from .models import Property, Room, PropertyImage, Booking
+
+
+class PropertyImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyImage
+        fields = ['id', 'image_url', 'caption', 'is_primary', 'order']
+
+
+class RoomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Room
+        fields = [
+            'id', 'name', 'room_type', 'description',
+            'max_guests', 'beds_single', 'beds_double',
+            'price_per_night', 'monthly_price',
+            'is_available', 'total_units',
+            'has_ac', 'has_tv', 'has_private_bathroom', 'has_balcony'
+        ]
+
+
+class PropertyListSerializer(serializers.ModelSerializer):
+    host_name = serializers.CharField(source='host.get_full_name', read_only=True)
+    primary_image = serializers.SerializerMethodField()
+    lowest_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Property
+        fields = [
+            'id', 'name', 'property_type', 'region', 'city',
+            'latitude', 'longitude', 'amenities',
+            'rating_average', 'review_count',
+            'primary_image', 'host_name', 'status',
+            'max_guests', 'lowest_price'
+        ]
+
+    def get_primary_image(self, obj):
+        img = obj.images.filter(is_primary=True).first()
+        if img:
+            return img.image_url
+        first = obj.images.first()
+        return first.image_url if first else None
+
+    def get_lowest_price(self, obj):
+        room = obj.rooms.order_by('price_per_night').first()
+        return str(room.price_per_night) if room else None
+
+
+class PropertyDetailSerializer(serializers.ModelSerializer):
+    images = PropertyImageSerializer(many=True, read_only=True)
+    rooms = RoomSerializer(many=True, read_only=True)
+    host_name = serializers.CharField(source='host.get_full_name', read_only=True)
+    host_phone = serializers.CharField(source='host.phone_number', read_only=True)
+
+    class Meta:
+        model = Property
+        fields = [
+            'id', 'host', 'host_name', 'host_phone',
+            'name', 'description', 'property_type',
+            'region', 'city', 'district', 'address',
+            'latitude', 'longitude',
+            'contact_phone', 'contact_email',
+            'amenities', 'check_in_time', 'check_out_time',
+            'total_rooms', 'total_beds', 'max_guests', 'bathrooms',
+            'status', 'rating_average', 'review_count', 'booking_count',
+            'images', 'rooms', 'created_at', 'updated_at'
+        ]
+
+
+class PropertyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Property
+        fields = [
+            'name', 'description', 'property_type',
+            'region', 'city', 'district', 'address',
+            'latitude', 'longitude',
+            'contact_phone', 'contact_email',
+            'amenities', 'check_in_time', 'check_out_time',
+            'total_rooms', 'total_beds', 'max_guests', 'bathrooms'
+        ]
+
+    def create(self, validated_data):
+        validated_data['host'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='listing.name', read_only=True)
+    room_name = serializers.CharField(source='room.name', read_only=True)
+    guest_name = serializers.CharField(source='guest.get_full_name', read_only=True)
+    nights = serializers.IntegerField(source='get_nights', read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = [
+            'id', 'listing', 'property_name', 'room', 'room_name',
+            'guest', 'guest_name',
+            'check_in', 'check_out', 'nights',
+            'number_of_guests', 'price_per_night', 'total_price',
+            'status', 'special_requests', 'created_at'
+        ]
+        read_only_fields = ['guest', 'price_per_night', 'total_price', 'status']
