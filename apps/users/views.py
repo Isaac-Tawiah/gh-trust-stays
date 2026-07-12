@@ -69,3 +69,24 @@ def login_user(request):
 def get_profile(request):
     serializer = UserProfileSerializer(request.user)
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def setup_admin(request):
+    if User.objects.filter(is_superuser=True).exists():
+        return Response({'message': 'Admin already exists.'})
+    
+    user = User.objects.create_superuser(
+        phone_number='+233500000000',
+        first_name='Admin',
+        last_name='User',
+        password='admin123456'
+    )
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({
+        'message': 'Admin created.',
+        'phone': '233500000000',
+        'password': 'admin123456',
+        'token': token.key,
+    })
