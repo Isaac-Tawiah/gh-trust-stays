@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: gh-trust-stays
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: gunicorn config.wsgi:application
+    envVars:
+      - key: SECRET_KEY
+        value: django-insecure-gh-trust-stays-prod-key-2024
+      - key: DEBUG
+        value: "False"
+      - key: PAYSTACK_SECRET_KEY
+        value: sk_test_6f4bce34f464e95b7affac6ca461ac916b7f1bd7
+      - key: PYTHON_VERSION
+        value: "3.11.0"
