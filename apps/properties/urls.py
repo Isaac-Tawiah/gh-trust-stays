@@ -9,4 +9,5 @@ urlpatterns = [
     path('host/<uuid:property_id>/submit/', views.submit_for_verification, name='submit-verification'),
     path('bookings/create/', views.create_booking, name='create-booking'),
     path('bookings/my-bookings/', views.my_bookings, name='my-bookings'),
+    path('host/bookings/', views.host_bookings, name='host-bookings'),
 ]

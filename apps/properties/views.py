@@ -163,3 +163,18 @@ def my_bookings(request):
     bookings = Booking.objects.filter(guest=request.user)
     serializer = BookingSerializer(bookings, many=True)
     return Response({'count': bookings.count(), 'results': serializer.data})
+
+
+# ──────────────────────────────────────
+# HOST BOOKINGS
+# ──────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def host_bookings(request):
+    if not request.user.is_host:
+        return Response({'error': 'Only hosts can view guest bookings.'}, status=status.HTTP_403_FORBIDDEN)
+
+    bookings = Booking.objects.filter(listing__host=request.user)
+    serializer = BookingSerializer(bookings, many=True)
+    return Response({'count': bookings.count(), 'results': serializer.data})
