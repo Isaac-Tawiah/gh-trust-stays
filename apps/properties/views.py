@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from datetime import datetime
+from .models import Property, Room, Booking, PropertyImage
 
 from .models import Property, Room, Booking
 from .choices import PropertyStatus
@@ -78,6 +79,25 @@ def create_property(request):
     serializer = PropertyCreateSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         prop = serializer.save()
+        
+        # Create a default room from the form data
+        price = request.data.get('price_per_night') or request.data.get('monthly_price')
+        room_name = request.data.get('room_name', 'Standard Room')
+        room_type = 'ENTIRE_HOUSE' if prop.property_type == 'LONG_TERM' else 'SINGLE'
+        
+        if price:
+            Room.objects.create(
+                property=prop,
+                name=room_name,
+                room_type=room_type,
+                price_per_night=float(price) if prop.property_type != 'LONG_TERM' else 0,
+                monthly_price=float(price) if prop.property_type == 'LONG_TERM' else None,
+                max_guests=prop.max_guests,
+                beds_single=0,
+                beds_double=1,
+                total_units=prop.total_rooms,
+            )
+        
         return Response({
             'message': 'Property created.',
             'property_id': str(prop.id),
