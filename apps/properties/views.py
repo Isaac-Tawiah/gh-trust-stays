@@ -76,13 +76,14 @@ def create_property(request):
     if not request.user.is_host:
         return Response({'error': 'Only hosts can create listings.'}, status=status.HTTP_403_FORBIDDEN)
 
+    # Extract price before serializer strips it
+    price = request.data.get('price_per_night') or request.data.get('monthly_price')
+    room_name = request.data.get('room_name', 'Standard Room')
+    
     serializer = PropertyCreateSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         prop = serializer.save()
         
-        # Create a default room from the form data
-        price = request.data.get('price_per_night') or request.data.get('monthly_price') or request.data.get('price')
-        room_name = request.data.get('room_name', 'Standard Room')
         room_type = 'ENTIRE_HOUSE' if prop.property_type == 'LONG_TERM' else 'SINGLE'
         
         if price:
@@ -104,7 +105,6 @@ def create_property(request):
             'status': prop.status
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
