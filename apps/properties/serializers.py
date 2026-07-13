@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Property, Room, PropertyImage, Booking
+from .models import PropertyImage
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
@@ -69,6 +70,8 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
 
 
 class PropertyCreateSerializer(serializers.ModelSerializer):
+    image_urls = serializers.ListField(child=serializers.URLField(), required=False, write_only=True)
+    
     class Meta:
         model = Property
         fields = [
@@ -77,13 +80,24 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
             'latitude', 'longitude',
             'contact_phone', 'contact_email',
             'amenities', 'check_in_time', 'check_out_time',
-            'total_rooms', 'total_beds', 'max_guests', 'bathrooms'
+            'total_rooms', 'total_beds', 'max_guests', 'bathrooms',
+            'image_urls',
         ]
-
+    
     def create(self, validated_data):
+        image_urls = validated_data.pop('image_urls', [])
         validated_data['host'] = self.context['request'].user
-        return super().create(validated_data)
-
+        property_obj = super().create(validated_data)
+        
+        for i, url in enumerate(image_urls):
+            PropertyImage.objects.create(
+                property=property_obj,
+                image_url=url,
+                is_primary=(i == 0),
+                order=i,
+            )
+        
+        return property_obj
 
 class BookingSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='listing.name', read_only=True)
