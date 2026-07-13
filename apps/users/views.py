@@ -74,19 +74,30 @@ def get_profile(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def setup_admin(request):
-    if User.objects.filter(is_superuser=True).exists():
-        return Response({'message': 'Admin already exists.'})
+    phone = '233500000001'
+    password = 'admin123456'
     
-    user = User.objects.create_superuser(
-        phone_number='+233500000000',
-        first_name='Admin',
-        last_name='User',
-        password='admin123456'
+    user, created = User.objects.get_or_create(
+        phone_number=phone,
+        defaults={
+            'first_name': 'Admin',
+            'last_name': 'User',
+            'is_staff': True,
+            'is_superuser': True,
+            'is_active': True,
+            'user_type': 'ADMIN',
+        }
     )
-    token, _ = Token.objects.get_or_create(user=user)
+    
+    if not created:
+        user.set_password(password)
+        user.is_staff = True
+        user.is_superuser = True
+        user.user_type = 'ADMIN'
+        user.save()
+    
     return Response({
-        'message': 'Admin created.',
-        'phone': '233500000000',
-        'password': 'admin123456',
-        'token': token.key,
+        'message': 'Admin ready.',
+        'phone': phone,
+        'password': password,
     })
