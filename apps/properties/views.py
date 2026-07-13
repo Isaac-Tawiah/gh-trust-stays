@@ -81,7 +81,7 @@ def create_property(request):
         prop = serializer.save()
         
         # Create a default room from the form data
-        price = request.data.get('price_per_night') or request.data.get('monthly_price')
+        price = request.data.get('price_per_night') or request.data.get('monthly_price') or request.data.get('price')
         room_name = request.data.get('room_name', 'Standard Room')
         room_type = 'ENTIRE_HOUSE' if prop.property_type == 'LONG_TERM' else 'SINGLE'
         
