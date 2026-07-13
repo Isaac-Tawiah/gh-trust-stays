@@ -104,10 +104,9 @@ def submit_for_verification(request, property_id):
         return Response({'error': 'Only hosts can submit listings.'}, status=status.HTTP_403_FORBIDDEN)
 
     prop = get_object_or_404(Property, id=property_id, host=request.user, status=PropertyStatus.DRAFT)
-    prop.status = PropertyStatus.PENDING_VERIFICATION
+    prop.status = PropertyStatus.LIVE
     prop.save(update_fields=['status'])
-    return Response({'message': 'Submitted for verification.', 'status': prop.status})
-
+    return Response({'message': 'Property is now live!', 'status': prop.status})
 
 # ──────────────────────────────────────
 # BOOKINGS
