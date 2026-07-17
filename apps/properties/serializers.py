@@ -44,9 +44,12 @@ class PropertyListSerializer(serializers.ModelSerializer):
         return first.image_url if first else None
 
     def get_lowest_price(self, obj):
-        room = obj.rooms.order_by('price_per_night').first()
-        return str(room.price_per_night) if room else None
-
+        room = obj.rooms.first()
+        if not room:
+            return None
+        if room.monthly_price:
+            return str(room.monthly_price)
+        return str(room.price_per_night)
 
 class PropertyDetailSerializer(serializers.ModelSerializer):
     images = PropertyImageSerializer(many=True, read_only=True)
