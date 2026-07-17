@@ -11,4 +11,5 @@ urlpatterns = [
     path('bookings/my-bookings/', views.my_bookings, name='my-bookings'),
     path('host/bookings/', views.host_bookings, name='host-bookings'),
     path('host/<uuid:property_id>/delete/', views.delete_property, name='delete-property'),
+    path('bookings/<uuid:booking_id>/cancel/', views.cancel_booking, name='cancel-booking'),
 ]

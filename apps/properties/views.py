@@ -9,6 +9,9 @@ from django.shortcuts import get_object_or_404
 from datetime import datetime
 from .models import Property, Room, Booking, PropertyImage
 
+from django.utils import timezone
+from .choices import BookingStatus
+
 from .models import Property, Room, Booking
 from .choices import PropertyStatus
 from .serializers import (
@@ -207,3 +210,21 @@ def delete_property(request, property_id):
     prop = get_object_or_404(Property, id=property_id, host=request.user)
     prop.delete()
     return Response({'message': 'Property deleted.'})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_booking(request, booking_id):
+    booking = get_object_or_404(Booking, id=booking_id)
+    
+    # Allow guest or host to cancel
+    if request.user != booking.guest and request.user != booking.listing.host:
+        return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if not booking.can_be_cancelled:
+        return Response({'error': 'Booking cannot be cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    booking.booking_status = BookingStatus.CANCELLED
+    booking.cancelled_at = timezone.now()
+    booking.save()
+    
+    return Response({'message': 'Booking cancelled.'})
