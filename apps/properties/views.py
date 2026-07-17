@@ -1,19 +1,13 @@
-from django.shortcuts import render
-
-# Create your views here.
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from datetime import datetime
-from .models import Property, Room, Booking, PropertyImage
-
+from datetime import datetime, timedelta
 from django.utils import timezone
-from .choices import BookingStatus
 
-from .models import Property, Room, Booking
-from .choices import PropertyStatus
+from .models import Property, Room, Booking, PropertyImage
+from .choices import PropertyStatus, BookingStatus
 from .serializers import (
     PropertyListSerializer,
     PropertyDetailSerializer,
@@ -79,16 +73,15 @@ def create_property(request):
     if not request.user.is_host:
         return Response({'error': 'Only hosts can create listings.'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Extract price before serializer strips it
     price = request.data.get('price_per_night') or request.data.get('monthly_price')
     room_name = request.data.get('room_name', 'Standard Room')
-    
+
     serializer = PropertyCreateSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         prop = serializer.save()
-        
+
         room_type = 'ENTIRE_HOUSE' if prop.property_type == 'LONG_TERM' else 'SINGLE'
-        
+
         if price:
             Room.objects.create(
                 property=prop,
@@ -101,13 +94,14 @@ def create_property(request):
                 beds_double=1,
                 total_units=prop.total_rooms,
             )
-        
+
         return Response({
             'message': 'Property created.',
             'property_id': str(prop.id),
             'status': prop.status
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -131,9 +125,36 @@ def submit_for_verification(request, property_id):
     prop.save(update_fields=['status'])
     return Response({'message': 'Property is now live!', 'status': prop.status})
 
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_property(request, property_id):
+    if not request.user.is_host:
+        return Response({'error': 'Only hosts can delete listings.'}, status=status.HTTP_403_FORBIDDEN)
+
+    prop = get_object_or_404(Property, id=property_id, host=request.user)
+    prop.delete()
+    return Response({'message': 'Property deleted.'})
+
+
 # ──────────────────────────────────────
 # BOOKINGS
 # ──────────────────────────────────────
+
+def _calculate_months(start_date, end_date):
+    """Calculate the number of calendar months between two dates."""
+    months = 0
+    current = start_date.replace(day=1)
+    end = end_date.replace(day=1)
+    while current < end:
+        months += 1
+        # Move to first day of next month
+        if current.month == 12:
+            current = current.replace(year=current.year + 1, month=1)
+        else:
+            current = current.replace(month=current.month + 1)
+    return max(months, 1)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -161,7 +182,14 @@ def create_booking(request):
     if nights < 1:
         return Response({'error': 'Check-out must be after check-in.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    total = room.price_per_night * nights
+    # Calculate total price based on property type
+    if room.monthly_price and room.monthly_price > 0:
+        months = _calculate_months(check_in_date, check_out_date)
+        total = room.monthly_price * months
+        price_per_night_at_booking = room.monthly_price
+    else:
+        total = room.price_per_night * nights
+        price_per_night_at_booking = room.price_per_night
 
     booking = Booking.objects.create(
         guest=request.user,
@@ -170,7 +198,7 @@ def create_booking(request):
         check_in=check_in_date,
         check_out=check_out_date,
         number_of_guests=request.data.get('number_of_guests', 1),
-        price_per_night=room.price_per_night,
+        price_per_night=price_per_night_at_booking,
         total_price=total,
         special_requests=request.data.get('special_requests', '')
     )
@@ -187,6 +215,23 @@ def my_bookings(request):
     return Response({'count': bookings.count(), 'results': serializer.data})
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_booking(request, booking_id):
+    booking = get_object_or_404(Booking, id=booking_id)
+
+    if request.user != booking.guest and request.user != booking.listing.host:
+        return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
+
+    if not booking.can_be_cancelled:
+        return Response({'error': 'Booking cannot be cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    booking.status = BookingStatus.CANCELLED
+    booking.save()
+
+    return Response({'message': 'Booking cancelled.'})
+
+
 # ──────────────────────────────────────
 # HOST BOOKINGS
 # ──────────────────────────────────────
@@ -200,31 +245,3 @@ def host_bookings(request):
     bookings = Booking.objects.filter(listing__host=request.user)
     serializer = BookingSerializer(bookings, many=True)
     return Response({'count': bookings.count(), 'results': serializer.data})
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated])
-def delete_property(request, property_id):
-    if not request.user.is_host:
-        return Response({'error': 'Only hosts can delete listings.'}, status=status.HTTP_403_FORBIDDEN)
-    
-    prop = get_object_or_404(Property, id=property_id, host=request.user)
-    prop.delete()
-    return Response({'message': 'Property deleted.'})
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def cancel_booking(request, booking_id):
-    booking = get_object_or_404(Booking, id=booking_id)
-    
-    # Allow guest or host to cancel
-    if request.user != booking.guest and request.user != booking.listing.host:
-        return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
-    
-    if not booking.can_be_cancelled:
-        return Response({'error': 'Booking cannot be cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    booking.booking_status = BookingStatus.CANCELLED
-    booking.cancelled_at = timezone.now()
-    booking.save()
-    
-    return Response({'message': 'Booking cancelled.'})
