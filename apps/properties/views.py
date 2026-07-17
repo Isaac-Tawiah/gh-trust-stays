@@ -245,3 +245,19 @@ def host_bookings(request):
     bookings = Booking.objects.filter(listing__host=request.user)
     serializer = BookingSerializer(bookings, many=True)
     return Response({'count': bookings.count(), 'results': serializer.data})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def approve_booking(request, booking_id):
+    booking = get_object_or_404(Booking, id=booking_id)
+    
+    if request.user != booking.listing.host:
+        return Response({'error': 'Only the property host can approve bookings.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if booking.status != BookingStatus.PENDING:
+        return Response({'error': 'Only pending bookings can be approved.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    booking.status = BookingStatus.CONFIRMED
+    booking.save()
+    
+    return Response({'message': 'Booking confirmed.'})
