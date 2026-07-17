@@ -197,3 +197,13 @@ def host_bookings(request):
     bookings = Booking.objects.filter(listing__host=request.user)
     serializer = BookingSerializer(bookings, many=True)
     return Response({'count': bookings.count(), 'results': serializer.data})
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_property(request, property_id):
+    if not request.user.is_host:
+        return Response({'error': 'Only hosts can delete listings.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    prop = get_object_or_404(Property, id=property_id, host=request.user)
+    prop.delete()
+    return Response({'message': 'Property deleted.'})
