@@ -50,6 +50,16 @@ class Property(models.Model):
     def __str__(self):
         return f"{self.name} - {self.city}"
 
+    @property
+    def starting_price(self):
+        """Returns the lowest room price for this property"""
+        cheapest = self.rooms.first()
+        if not cheapest:
+            return None
+        if cheapest.monthly_price:
+            return cheapest.monthly_price
+        return cheapest.price_per_night
+
 
 class Room(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
