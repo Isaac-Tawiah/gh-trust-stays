@@ -223,14 +223,13 @@ def cancel_booking(request, booking_id):
     if request.user != booking.guest and request.user != booking.listing.host:
         return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
 
-    if not booking.can_be_cancelled:
-        return Response({'error': 'Booking cannot be cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
+    if booking.status not in [BookingStatus.PENDING, BookingStatus.CONFIRMED]:
+        return Response({'error': 'Only pending or confirmed bookings can be cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
 
     booking.status = BookingStatus.CANCELLED
     booking.save()
 
     return Response({'message': 'Booking cancelled.'})
-
 
 # ──────────────────────────────────────
 # HOST BOOKINGS
