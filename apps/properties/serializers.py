@@ -16,7 +16,7 @@ class RoomSerializer(serializers.ModelSerializer):
             'id', 'name', 'room_type', 'description',
             'max_guests', 'beds_single', 'beds_double',
             'price_per_night', 'monthly_price',
-            'is_available', 'total_units',
+            'is_available', 'total_units', 'available_units',
             'has_ac', 'has_tv', 'has_private_bathroom', 'has_balcony'
         ]
 

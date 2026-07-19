@@ -81,6 +81,7 @@ def create_property(request):
         prop = serializer.save()
 
         room_type = 'ENTIRE_HOUSE' if prop.property_type == 'LONG_TERM' else 'SINGLE'
+        total_rooms = prop.total_rooms
 
         if price:
             Room.objects.create(
@@ -92,7 +93,8 @@ def create_property(request):
                 max_guests=prop.max_guests,
                 beds_single=0,
                 beds_double=1,
-                total_units=prop.total_rooms,
+                total_units=total_rooms,
+                available_units=total_rooms,
             )
 
         return Response({
@@ -148,7 +150,6 @@ def _calculate_months(start_date, end_date):
     end = end_date.replace(day=1)
     while current < end:
         months += 1
-        # Move to first day of next month
         if current.month == 12:
             current = current.replace(year=current.year + 1, month=1)
         else:
@@ -162,6 +163,7 @@ def create_booking(request):
     room_id = request.data.get('room_id')
     check_in = request.data.get('check_in')
     check_out = request.data.get('check_out')
+    units_requested = int(request.data.get('units', 1))
 
     if not all([room_id, check_in, check_out]):
         return Response({'error': 'room_id, check_in, and check_out are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -171,6 +173,12 @@ def create_booking(request):
 
     if prop.status != PropertyStatus.LIVE:
         return Response({'error': 'Property is not accepting bookings.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check inventory
+    if units_requested > room.available_units:
+        return Response({
+            'error': f'Only {room.available_units} unit(s) available.'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         check_in_date = datetime.strptime(check_in, '%Y-%m-%d').date()
@@ -185,10 +193,10 @@ def create_booking(request):
     # Calculate total price based on property type
     if room.monthly_price and room.monthly_price > 0:
         months = _calculate_months(check_in_date, check_out_date)
-        total = room.monthly_price * months
+        total = room.monthly_price * months * units_requested
         price_per_night_at_booking = room.monthly_price
     else:
-        total = room.price_per_night * nights
+        total = room.price_per_night * nights * units_requested
         price_per_night_at_booking = room.price_per_night
 
     booking = Booking.objects.create(
@@ -203,8 +211,22 @@ def create_booking(request):
         special_requests=request.data.get('special_requests', '')
     )
 
+    # Decrease available units
+    room.available_units -= units_requested
+    if room.available_units <= 0:
+        room.available_units = 0
+        room.is_available = False
+    room.save(update_fields=['available_units', 'is_available'])
+
+    # Update property booking count
+    prop.booking_count += 1
+    prop.save(update_fields=['booking_count'])
+
     serializer = BookingSerializer(booking)
-    return Response({'message': 'Booking created.', 'booking': serializer.data}, status=status.HTTP_201_CREATED)
+    return Response({
+        'message': 'Booking created.',
+        'booking': serializer.data
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])
@@ -229,7 +251,14 @@ def cancel_booking(request, booking_id):
     booking.status = BookingStatus.CANCELLED
     booking.save()
 
+    # Restore available units
+    room = booking.room
+    room.available_units += 1
+    room.is_available = True
+    room.save(update_fields=['available_units', 'is_available'])
+
     return Response({'message': 'Booking cancelled.'})
+
 
 # ──────────────────────────────────────
 # HOST BOOKINGS
@@ -245,18 +274,19 @@ def host_bookings(request):
     serializer = BookingSerializer(bookings, many=True)
     return Response({'count': bookings.count(), 'results': serializer.data})
 
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def approve_booking(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id)
-    
+
     if request.user != booking.listing.host:
         return Response({'error': 'Only the property host can approve bookings.'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     if booking.status != BookingStatus.PENDING:
         return Response({'error': 'Only pending bookings can be approved.'}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     booking.status = BookingStatus.CONFIRMED
     booking.save()
-    
+
     return Response({'message': 'Booking confirmed.'})

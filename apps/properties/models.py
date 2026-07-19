@@ -74,6 +74,8 @@ class Room(models.Model):
     monthly_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
     is_available = models.BooleanField(default=True)
     total_units = models.PositiveIntegerField(default=1)
+    available_units = models.PositiveIntegerField(default=1,
+    help_text="Number of rooms currently available for booking")
     has_ac = models.BooleanField(default=False)
     has_tv = models.BooleanField(default=False)
     has_private_bathroom = models.BooleanField(default=True)
