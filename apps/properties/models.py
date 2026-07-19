@@ -118,6 +118,7 @@ class Booking(models.Model):
     check_in = models.DateField()
     check_out = models.DateField()
     number_of_guests = models.PositiveIntegerField(default=1)
+    units_booked = models.PositiveIntegerField(default=1)
     price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=BookingStatus.CHOICES, default=BookingStatus.PENDING, db_index=True)

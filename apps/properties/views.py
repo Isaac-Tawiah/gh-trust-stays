@@ -174,7 +174,6 @@ def create_booking(request):
     if prop.status != PropertyStatus.LIVE:
         return Response({'error': 'Property is not accepting bookings.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Check inventory
     if units_requested > room.available_units:
         return Response({
             'error': f'Only {room.available_units} unit(s) available.'
@@ -190,7 +189,6 @@ def create_booking(request):
     if nights < 1:
         return Response({'error': 'Check-out must be after check-in.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Calculate total price based on property type
     if room.monthly_price and room.monthly_price > 0:
         months = _calculate_months(check_in_date, check_out_date)
         total = room.monthly_price * months * units_requested
@@ -206,19 +204,18 @@ def create_booking(request):
         check_in=check_in_date,
         check_out=check_out_date,
         number_of_guests=request.data.get('number_of_guests', 1),
+        units_booked=units_requested,
         price_per_night=price_per_night_at_booking,
         total_price=total,
         special_requests=request.data.get('special_requests', '')
     )
 
-    # Decrease available units
     room.available_units -= units_requested
     if room.available_units <= 0:
         room.available_units = 0
         room.is_available = False
     room.save(update_fields=['available_units', 'is_available'])
 
-    # Update property booking count
     prop.booking_count += 1
     prop.save(update_fields=['booking_count'])
 
@@ -251,9 +248,8 @@ def cancel_booking(request, booking_id):
     booking.status = BookingStatus.CANCELLED
     booking.save()
 
-    # Restore available units
     room = booking.room
-    room.available_units += 1
+    room.available_units += booking.units_booked
     room.is_available = True
     room.save(update_fields=['available_units', 'is_available'])
 

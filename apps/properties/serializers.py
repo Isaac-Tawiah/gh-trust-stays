@@ -115,7 +115,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'id', 'listing', 'property_name', 'room', 'room_name',
             'guest', 'guest_name', 'guest_phone',
             'check_in', 'check_out', 'nights',
-            'number_of_guests', 'price_per_night', 'total_price',
+            'number_of_guests', 'units_booked', 'price_per_night', 'total_price',
             'status', 'special_requests', 'created_at'
         ]
         read_only_fields = ['guest', 'price_per_night', 'total_price', 'status']
