@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from .models import Property, Room, PropertyImage, Booking
-from .models import PropertyImage
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
@@ -51,6 +50,7 @@ class PropertyListSerializer(serializers.ModelSerializer):
             return str(room.monthly_price)
         return str(room.price_per_night)
 
+
 class PropertyDetailSerializer(serializers.ModelSerializer):
     images = PropertyImageSerializer(many=True, read_only=True)
     rooms = RoomSerializer(many=True, read_only=True)
@@ -74,7 +74,7 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
 
 class PropertyCreateSerializer(serializers.ModelSerializer):
     image_urls = serializers.ListField(child=serializers.URLField(), required=False, write_only=True)
-    
+
     class Meta:
         model = Property
         fields = [
@@ -86,12 +86,12 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
             'total_rooms', 'total_beds', 'max_guests', 'bathrooms',
             'image_urls',
         ]
-    
+
     def create(self, validated_data):
         image_urls = validated_data.pop('image_urls', [])
         validated_data['host'] = self.context['request'].user
         property_obj = super().create(validated_data)
-        
+
         for i, url in enumerate(image_urls):
             PropertyImage.objects.create(
                 property=property_obj,
@@ -99,8 +99,9 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
                 is_primary=(i == 0),
                 order=i,
             )
-        
+
         return property_obj
+
 
 class BookingSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='listing.name', read_only=True)
@@ -114,9 +115,10 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = [
             'id', 'listing', 'property_name', 'room', 'room_name',
-            'guest', 'guest_name', 'guest_phone',
+            'guest', 'guest_name', 'guest_phone', 'property_type',
             'check_in', 'check_out', 'nights',
-            'number_of_guests', 'units_booked', 'price_per_night', 'total_price',
+            'number_of_guests', 'units_booked',
+            'price_per_night', 'total_price',
             'status', 'special_requests', 'created_at'
         ]
         read_only_fields = ['guest', 'price_per_night', 'total_price', 'status']
