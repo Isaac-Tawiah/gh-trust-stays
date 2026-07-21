@@ -107,6 +107,7 @@ class BookingSerializer(serializers.ModelSerializer):
     room_name = serializers.CharField(source='room.name', read_only=True)
     guest_name = serializers.CharField(source='guest.get_full_name', read_only=True)
     guest_phone = serializers.CharField(source='guest.phone_number', read_only=True)
+    property_type = serializers.CharField(source='listing.property_type', read_only=True)
     nights = serializers.IntegerField(source='get_nights', read_only=True)
 
     class Meta:
