@@ -91,8 +91,8 @@ def create_property(request):
                 price_per_night=float(price) if prop.property_type != 'LONG_TERM' else 0,
                 monthly_price=float(price) if prop.property_type == 'LONG_TERM' else None,
                 max_guests=prop.max_guests,
-                beds_single=0,
-                beds_double=1,
+                beds_single=int(request.data.get('beds_single', 0)),
+                beds_double=int(request.data.get('beds_double', 1)),
                 total_units=total_rooms,
                 available_units=total_rooms,
             )
